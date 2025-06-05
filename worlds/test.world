@@ -106,14 +106,14 @@
     </plugin>
 
     <!-- Optix Map Plugin -->
-    <plugin name='rmagine_optix_map' filename='librmagine_optix_map_gzplugin.so'>
+    <!--plugin name='rmagine_optix_map' filename='librmagine_optix_map_gzplugin.so'>
       <update>
         <delta_trans>0.001</delta_trans>
         <delta_rot>0.001</delta_rot>
         <delta_scale>0.001</delta_scale>
         <rate_limit>500</rate_limit>
       </update>
-    </plugin>
+    </plugin-->
 
   </world>
 </sdf>

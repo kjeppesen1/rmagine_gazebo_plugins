@@ -34,8 +34,7 @@ include_directories(
   ${GAZEBO_INCLUDE_DIRS}
 )
 
-#### ROS-less Gazebo plugins
-
+# gazebo helper library
 add_library(rmagine_gazebo_helper SHARED
   src/helper/helper_functions.cpp
   src/helper/SceneState.cpp    
@@ -48,6 +47,7 @@ target_link_libraries(rmagine_gazebo_helper
   rmagine::core
 )
 
+# Embree plugins
 if(TARGET rmagine::embree)
 
 add_library(rmagine_embree_spherical_gzplugin SHARED
@@ -59,12 +59,32 @@ target_link_libraries(rmagine_embree_spherical_gzplugin
   rmagine::embree
 )
 
-add_library(rmagine_embree_sensors_gzregister SHARED
+# TODO: see if there is a way to combine all embree sensors into one gzregister
+add_library(rmagine_embree_spherical_gzregister SHARED
   src/rmagine_embree_spherical_gzregister.cpp
 )
 
-target_link_libraries(rmagine_embree_sensors_gzregister
+target_link_libraries(rmagine_embree_spherical_gzregister
   rmagine_embree_spherical_gzplugin 
+  ${GAZEBO_LIBRARIES}
+  rmagine::embree
+)
+
+add_library(rmagine_embree_o1dn_gzplugin SHARED
+  src/rmagine_embree_o1dn_gzplugin.cpp
+)
+
+target_link_libraries(rmagine_embree_o1dn_gzplugin 
+  ${GAZEBO_LIBRARIES}
+  rmagine::embree
+)
+
+add_library(rmagine_embree_o1dn_gzregister SHARED
+  src/rmagine_embree_o1dn_gzregister.cpp
+)
+
+target_link_libraries(rmagine_embree_o1dn_gzregister
+  rmagine_embree_o1dn_gzplugin
   ${GAZEBO_LIBRARIES}
   rmagine::embree
 )
@@ -75,6 +95,8 @@ add_library(rmagine_embree_map_gzplugin SHARED
 )
 
 target_link_libraries(rmagine_embree_map_gzplugin 
+  rmagine_embree_spherical_gzplugin
+  rmagine_embree_o1dn_gzplugin
   rmagine_gazebo_helper
   ${GAZEBO_LIBRARIES}
   rmagine::embree
@@ -82,13 +104,16 @@ target_link_libraries(rmagine_embree_map_gzplugin
 
 # ROS Gazebo plugins
 add_library(rmagine_embree_ros_gzplugin SHARED 
-  src/rmagine_embree_ros_gzplugin.cpp)
-
+  src/rmagine_embree_ros_gzplugin.cpp
+)
 target_link_libraries(rmagine_embree_ros_gzplugin 
   rmagine_embree_spherical_gzplugin
+  rmagine_embree_o1dn_gzplugin
   ${GAZEBO_LIBRARIES}
   rmagine::embree
 )
+# Link ROS2
+ament_target_dependencies(rmagine_embree_ros_gzplugin rclcpp sensor_msgs)
 
 # Link ROS2
 ament_target_dependencies(rmagine_embree_ros_gzplugin rclcpp sensor_msgs)
@@ -97,13 +122,13 @@ install(
   TARGETS 
     rmagine_embree_map_gzplugin
     rmagine_embree_spherical_gzplugin 
-    rmagine_embree_sensors_gzregister
+    rmagine_embree_spherical_gzregister
     rmagine_embree_ros_gzplugin
+    rmagine_embree_o1dn_gzplugin
+    rmagine_embree_o1dn_gzregister
   LIBRARY DESTINATION lib
 )
-
 endif(TARGET rmagine::embree)
-
 
 ### OPTIX
 if(TARGET rmagine::optix)
@@ -158,9 +183,8 @@ install(
     rmagine_optix_spherical_gzplugin 
     rmagine_optix_sensors_gzregister
     rmagine_optix_ros_gzplugin
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION lib
 )
-
 endif(TARGET rmagine::optix)
 
 # Install launch files

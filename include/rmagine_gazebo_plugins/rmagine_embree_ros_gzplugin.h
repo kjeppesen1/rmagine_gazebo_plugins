@@ -6,11 +6,13 @@
 #include <gazebo/gazebo.hh>
 #include <gazebo/sensors/sensors.hh>
 #include <rmagine_gazebo_plugins/rmagine_embree_spherical_gzplugin.h>
+#include <rmagine_gazebo_plugins/rmagine_embree_o1dn_gzplugin.h>
 
 #include <rmagine/math/types.h>
 #include <rmagine/types/Memory.hpp>
 #include <rmagine/types/sensor_models.h>
 #include <rmagine/simulation/SphereSimulatorEmbree.hpp>
+#include <rmagine/simulation/O1DnSimulatorEmbree.hpp>
 
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud.hpp>
@@ -47,7 +49,9 @@ private:
 
     virtual void OnUpdate();
 
-    sensors::RmagineEmbreeSphericalPtr m_spherical_sensor;
+    std::shared_ptr<sensors::Sensor> m_sensor;
+    sensors::RmagineEmbreeSphericalPtr m_sensor_spherical;
+    sensors::RmagineEmbreeO1DnPtr m_sensor_o1dn;
 
     event::ConnectionPtr m_update_conn;
 

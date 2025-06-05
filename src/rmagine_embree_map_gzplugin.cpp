@@ -953,7 +953,13 @@ void RmagineEmbreeMap::UpdateState(
         }
     }
 
-    m_sensors_loaded = !m_scene_state.update(models_new, diff);
+    //m_sensors_loaded = !m_scene_state.update(models_new, diff);
+    // TODO: this is a hack by kjeppesen just to get things working.
+    // Otherwise robots with multiple non-rmagine sensors will cause trouble
+    // with existing logic, disabling this check early. Need to come up with a better
+    // fix than to continuously check until an rmagine sensor is found.
+    !m_scene_state.update(models_new, diff);
+
 }
 
 void RmagineEmbreeMap::UpdateSensors()
@@ -978,9 +984,35 @@ void RmagineEmbreeMap::UpdateSensors()
                 }
                 spherical->setLock(m_map_mutex);
                 spherical->setMap(m_map);
+
+                // TODO: this is a hack by kjeppesen just to get things working.
+                // Otherwise robots with multiple non-rmagine sensors will cause trouble
+                // with existing logic, disabling this check early. Need to come up with a better
+                // fix than to continuously check until an rmagine sensor is found.
+                m_sensors_loaded = true;
+            }
+
+            sensors::RmagineEmbreeO1DnPtr o1dn 
+                = std::dynamic_pointer_cast<sensors::RmagineEmbreeO1Dn>(sensor);
+
+            if(o1dn)
+            {
+                gzdbg << "[RmagineEmbreeMap] Found Rmagine o1dn sensor " << o1dn->ScopedName() << std::endl;
+                if(!m_map_mutex)
+                {
+                    gzwarn << "[RmagineEmbreeMap] no mutex " << std::endl;
+                }
+                o1dn->setLock(m_map_mutex);
+                o1dn->setMap(m_map);
+
+                // TODO: this is a hack by kjeppesen just to get things working.
+                // Otherwise robots with multiple non-rmagine sensors will cause trouble
+                // with existing logic, disabling this check early. Need to come up with a better
+                // fix than to continuously check until an rmagine sensor is found.
+                m_sensors_loaded = true;
             }
         }
-        m_sensors_loaded = true;
+        //m_sensors_loaded = true;
     }
 }
 

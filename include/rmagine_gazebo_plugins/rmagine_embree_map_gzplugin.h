@@ -6,6 +6,7 @@
 #include <gazebo/common/common.hh>
 #include <gazebo/gazebo.hh>
 #include <rmagine_gazebo_plugins/rmagine_embree_spherical_gzplugin.h>
+#include <rmagine_gazebo_plugins/rmagine_embree_o1dn_gzplugin.h>
 #include <rmagine_gazebo_plugins/helper/helper_functions.h>
 
 #include <ignition/math/Vector3.hh>

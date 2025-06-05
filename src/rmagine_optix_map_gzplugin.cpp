@@ -899,12 +899,13 @@ void RmagineOptixMap::UpdateState()
         }
     }
 
-    m_sensors_loaded = !m_scene_state.update(models_new, diff);
+    !m_scene_state.update(models_new, diff);
+    /*m_sensors_loaded = !m_scene_state.update(models_new, diff);
 
     if(!m_sensors_loaded)
     {
         // std::cout << "Reload sensors!" << std::endl;
-    }
+    }*/
 }
 
 void RmagineOptixMap::UpdateSensors()
@@ -929,9 +930,12 @@ void RmagineOptixMap::UpdateSensors()
                     gzwarn << "[RmagineOptixMap] no mutex " << std::endl;
                 }
                 
+                // TODO: this is a hack by kjeppesen just to get things working.
+                // Otherwise robots with multiple non-rmagine sensors will cause trouble
+                // with existing logic. Need to come up with elegant fix.
+                m_sensors_loaded = true;
             }
         }
-        m_sensors_loaded = true;
     }
 }
 

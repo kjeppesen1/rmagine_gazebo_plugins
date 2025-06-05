@@ -478,6 +478,64 @@ Examples - this time using OptiX.
 </gazebo>
 ```
 
+**3D Laser, O1DN Model**
+
+The O1DN sensor model requires a config file which specifies
+the sensor scan pointing angles (e.g. to model custom scan patterns).
+See the scripts/example_create_o1dn_config.py script for more info
+and guidance on how to set up a config CSV file. Currently only
+embree o1dn sensors are supported, but an optix o1dn should be
+fairly straightforward to implement as well.
+
+```xml
+<gazebo reference="laser3d">
+  <sensor type="rmagine_embree_o1dn" name="laser3d">
+    <pose>0 0 0 0 0 0</pose>
+    <always_on>true</always_on>
+    <update_rate>20</update_rate>
+    <config_file>/configs/custom_scan_config.csv</config_file>
+
+    <ray>
+      <scan>
+        <orig>
+          <x>0.0</x>
+          <y>0.0</y>
+          <z>0.0</z>
+        </orig>
+      </scan>
+
+      <range>
+        <min>0.9</min>
+        <max>30.0</max>
+      </range>
+
+      <noise>
+        <type>uniform_dust</type>
+        <hit_prob>0.0000001</hit_prob>
+        <return_prob>0.5</return_prob>
+      </noise> 
+
+      <noise>
+        <type>rel_gaussian</type>
+        <mean>0.0</mean>
+        <stddev>0.002</stddev>
+        <range_exp>1.0</range_exp>
+      </noise>
+    </ray>
+
+    <plugin name="rmagine_ros_laser3d" filename="librmagine_embree_ros_gzplugin.so">
+      <frame>${name}</frame>
+      <outputs>
+        <output name="pcl2">
+          <msg>sensor_msgs/PointCloud2</msg>
+          <topic>laser3d/pcl2</topic>
+        </output>
+      </outputs>
+    </plugin>
+  </sensor>
+</gazebo>
+```
+
 ## Work in Progress
 
 This is a pre-release. There is still some work to do for the first stable release:

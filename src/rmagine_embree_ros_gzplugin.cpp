@@ -75,12 +75,23 @@ void RmagineEmbreeROS::Load(
 {
     m_sdf = _sdf;
 
-    m_spherical_sensor =
-        std::dynamic_pointer_cast<sensors::RmagineEmbreeSpherical>(_sensor);
-
-    if (!m_spherical_sensor)
+    // Check which sensor type, and populate relevant pointers
+    if (auto sph = std::dynamic_pointer_cast<sensors::RmagineEmbreeSpherical>(_sensor))
     {
-        gzerr << "RmagineEmbreeROS requires a RmagineEmbreeSpherical, RmagineEmbreePinhole, RmagineEmbreeO1Dn or RmagineEmbreeOnDn.\n";
+        std::cout << "[RmagineEmbreeROS] Sensor is Spherical" << std::endl;
+        m_sensor = sph;
+        m_sensor_spherical = sph;
+    }
+    else if (auto o1dn = std::dynamic_pointer_cast<sensors::RmagineEmbreeO1Dn>(_sensor))
+    {
+        std::cout << "[RmagineEmbreeROS] Sensor is O1DN" << std::endl;
+        m_sensor = o1dn;
+        m_sensor_o1dn = o1dn;
+    }
+    // If _sensor is neither spherical nor O1DN
+    else
+    {
+        gzerr << "RmagineEmbreeROS requires a RmagineEmbreeSpherical or RmagineEmbreeO1Dn.\n";
         return;
     }
 
@@ -97,32 +108,59 @@ void RmagineEmbreeROS::Load(
     parseOutputs(outputsElem);
 
     // Connect to the sensor update event.
-    m_update_conn = m_spherical_sensor->ConnectUpdated(
+    m_update_conn = m_sensor->ConnectUpdated(
         std::bind(&RmagineEmbreeROS::OnUpdate, this));
 
-    RCLCPP_INFO_STREAM(m_node->get_logger(), "[RmagineEmbreeROS] Loaded.");
+    std::cout << "[RmagineEmbreeROS] Loaded." << std::endl;
 }
 
 void RmagineEmbreeROS::OnUpdate()
 {
     // std::cout << "[RmagineEmbreeROS] Update!" << std::endl;
 
-    common::Time stamp_gz = m_spherical_sensor->stamp();
-    rm::SphericalModel sensor_model = m_spherical_sensor->sensorModel();
-    rm::Memory<float, rm::RAM> ranges = m_spherical_sensor->sim_buffers.ranges;
-    rm::Memory<rm::Vector3, rm::RAM> normals = m_spherical_sensor->sim_buffers.normals;
-    const bool has_normals = normals.size() > 0;
-    rm::Memory<unsigned int, rm::RAM> object_ids = m_spherical_sensor->sim_buffers.object_ids;
-    const bool has_object_ids = object_ids.size() > 0;
-    rm::Memory<unsigned int, rm::RAM> face_ids = m_spherical_sensor->sim_buffers.face_ids;
-    const bool has_face_ids = face_ids.size() > 0;
+    common::Time stamp_gz;
+    rm::Memory<float, rm::RAM> ranges;
+    rm::Memory<rm::Vector3, rm::RAM> normals;
+    bool has_normals;
+    rm::Memory<unsigned int, rm::RAM> object_ids;
+    bool has_object_ids;
+    rm::Memory<unsigned int, rm::RAM> face_ids;
+    bool has_face_ids;
+
+    if (m_sensor_spherical)
+    {
+        stamp_gz = m_sensor_spherical->stamp();
+        ranges = m_sensor_spherical->sim_buffers.ranges;
+        normals = m_sensor_spherical->sim_buffers.normals;
+        has_normals = normals.size() > 0;
+        object_ids = m_sensor_spherical->sim_buffers.object_ids;
+        has_object_ids = object_ids.size() > 0;
+        face_ids = m_sensor_spherical->sim_buffers.face_ids;
+        has_face_ids = face_ids.size() > 0;
+    }
+    else if (m_sensor_o1dn)
+    {
+        stamp_gz = m_sensor_o1dn->stamp();
+        ranges = m_sensor_o1dn->sim_buffers.ranges;
+        normals = m_sensor_o1dn->sim_buffers.normals;
+        has_normals = normals.size() > 0;
+        object_ids = m_sensor_o1dn->sim_buffers.object_ids;
+        has_object_ids = object_ids.size() > 0;
+        face_ids = m_sensor_o1dn->sim_buffers.face_ids;
+        has_face_ids = face_ids.size() > 0;
+    }
 
 
     rclcpp::Time stamp(stamp_gz.sec, stamp_gz.nsec, RCL_ROS_TIME);
 
+    // TODO: come up with a cleaner way to switch between sensor types.
+    // Also this should happen up top (i.e. here-ish) to be cleaner with the 3 possible scan messages.
+    // rm::SphericalModel sensor_model = m_sensor->sensorModel();
+
     for(auto elem : m_pubs)
     {
         auto pub = elem.second;
+        /* // TODO: finish implementing LaserScan and PointCloud to work with both sensor types. For now, just comment them out.
         if(pub.msg_type == "sensor_msgs/LaserScan")
         {
             if(sensor_model.phi.size == 1)
@@ -149,7 +187,7 @@ void RmagineEmbreeROS::OnUpdate()
                     typed_pub->publish(msg);
                 }
             } else {
-                RCLCPP_WARN_STREAM(m_node->get_logger(), "[RmagineEmbreeROS] Could not make Laserscan. phi size 1 != " << sensor_model.phi.size);
+                std::cout << "[RmagineEmbreeROS] Could not make Laserscan. phi size 1 != " << sensor_model.phi.size << std::endl;
             }
         }
 
@@ -183,6 +221,7 @@ void RmagineEmbreeROS::OnUpdate()
                 typed_pub->publish(msg);
             }
         }
+        */
 
         if(pub.msg_type == "sensor_msgs/PointCloud2")
         {
@@ -281,58 +320,121 @@ void RmagineEmbreeROS::OnUpdate()
             if(m_pcl2_unordered.find(pub.topic) == m_pcl2_unordered.end())
             {
                 msg.is_dense = false;
-                
-                msg.height = sensor_model.phi.size;
-                msg.width = sensor_model.theta.size;
 
-                msg.data.resize(msg.width * msg.height * msg.point_step);
-
-                for(size_t vid = 0; vid < sensor_model.getHeight(); vid++)
+                if (m_sensor_spherical)
                 {
-                    for(size_t hid = 0; hid < sensor_model.getWidth(); hid++)
+                    rm::SphericalModel sensor_model = m_sensor_spherical->sensorModel();
+                
+                    msg.height = sensor_model.phi.size;
+                    msg.width = sensor_model.theta.size;
+
+                    msg.data.resize(msg.width * msg.height * msg.point_step);
+
+                    for(size_t vid = 0; vid < sensor_model.getHeight(); vid++)
                     {
-                        const unsigned int pid = sensor_model.getBufferId(vid, hid);
-                        const float range = ranges[pid];
-
-                        uint8_t* buff = &msg.data[pid * msg.point_step];
-                        
-                        rm::Vector3* p = reinterpret_cast<rm::Vector3*>(buff);
-                        if(sensor_model.range.inside(range))
+                        for(size_t hid = 0; hid < sensor_model.getWidth(); hid++)
                         {
-                            *p = sensor_model.getDirection(vid, hid) * range;
-                            buff += sizeof(rm::Vector3);
+                            const unsigned int pid = sensor_model.getBufferId(vid, hid);
+                            const float range = ranges[pid];
 
-                            uint32_t* ring = reinterpret_cast<uint32_t*>(buff);
-                            *ring = vid;
-                            buff += sizeof(uint32_t);
-
-                            if(has_normals)
-                            {
-                                rm::Vector3* n = reinterpret_cast<rm::Vector3*>(buff);
-                                *n = normals[pid];
-                                buff += sizeof(rm::Vector3);
-                            }
-
-                            if(has_object_ids)
-                            {
-                                uint32_t* obj_id = reinterpret_cast<uint32_t*>(buff);
-                                *obj_id = object_ids[pid];
-                                buff += sizeof(uint32_t);
-                            }
-
-                            if(has_face_ids)
-                            {
-                                uint32_t* face_id = reinterpret_cast<uint32_t*>(buff);
-                                *face_id = face_ids[pid];
-                                buff += sizeof(uint32_t);
-                            }
+                            uint8_t* buff = &msg.data[pid * msg.point_step];
                             
-                        } else {
-                            // ordered pcl: fill with nans
-                            *p = rm::Vector3::NaN();
-                        }
+                            rm::Vector3* p = reinterpret_cast<rm::Vector3*>(buff);
+                            if(sensor_model.range.inside(range))
+                            {
+                                *p = sensor_model.getDirection(vid, hid) * range;
+                                buff += sizeof(rm::Vector3);
 
-                        // data[pid].ring = vid;
+                                uint32_t* ring = reinterpret_cast<uint32_t*>(buff);
+                                *ring = vid;
+                                buff += sizeof(uint32_t);
+
+                                if(has_normals)
+                                {
+                                    rm::Vector3* n = reinterpret_cast<rm::Vector3*>(buff);
+                                    *n = normals[pid];
+                                    buff += sizeof(rm::Vector3);
+                                }
+
+                                if(has_object_ids)
+                                {
+                                    uint32_t* obj_id = reinterpret_cast<uint32_t*>(buff);
+                                    *obj_id = object_ids[pid];
+                                    buff += sizeof(uint32_t);
+                                }
+
+                                if(has_face_ids)
+                                {
+                                    uint32_t* face_id = reinterpret_cast<uint32_t*>(buff);
+                                    *face_id = face_ids[pid];
+                                    buff += sizeof(uint32_t);
+                                }
+                                
+                            } else {
+                                // ordered pcl: fill with nans
+                                *p = rm::Vector3::NaN();
+                            }
+
+                            // data[pid].ring = vid;
+                        }
+                    }
+                }
+                else if (m_sensor_o1dn)
+                {
+                    rm::O1DnModel sensor_model = m_sensor_o1dn->sensorModel();
+                
+                    msg.height = sensor_model.getHeight();
+                    msg.width = sensor_model.getWidth();
+
+                    msg.data.resize(msg.width * msg.height * msg.point_step);
+
+                    for(size_t vid = 0; vid < sensor_model.getHeight(); vid++)
+                    {
+                        for(size_t hid = 0; hid < sensor_model.getWidth(); hid++)
+                        {
+                            const unsigned int pid = sensor_model.getBufferId(vid, hid);
+                            const float range = ranges[pid];
+
+                            uint8_t* buff = &msg.data[pid * msg.point_step];
+                            
+                            rm::Vector3* p = reinterpret_cast<rm::Vector3*>(buff);
+                            if(sensor_model.range.inside(range))
+                            {
+                                *p = sensor_model.getDirection(vid, hid) * range;
+                                buff += sizeof(rm::Vector3);
+
+                                uint32_t* ring = reinterpret_cast<uint32_t*>(buff);
+                                *ring = vid;
+                                buff += sizeof(uint32_t);
+
+                                if(has_normals)
+                                {
+                                    rm::Vector3* n = reinterpret_cast<rm::Vector3*>(buff);
+                                    *n = normals[pid];
+                                    buff += sizeof(rm::Vector3);
+                                }
+
+                                if(has_object_ids)
+                                {
+                                    uint32_t* obj_id = reinterpret_cast<uint32_t*>(buff);
+                                    *obj_id = object_ids[pid];
+                                    buff += sizeof(uint32_t);
+                                }
+
+                                if(has_face_ids)
+                                {
+                                    uint32_t* face_id = reinterpret_cast<uint32_t*>(buff);
+                                    *face_id = face_ids[pid];
+                                    buff += sizeof(uint32_t);
+                                }
+                                
+                            } else {
+                                // ordered pcl: fill with nans
+                                *p = rm::Vector3::NaN();
+                            }
+
+                            // data[pid].ring = vid;
+                        }
                     }
                 }
             } else {
