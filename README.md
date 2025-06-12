@@ -87,7 +87,7 @@ Depending on which backends were installed during Rmagine installation the follo
 
 1. Embree
     - World-Plugins: `rmagine_embree_map_gzplugin`
-    - Sensor-Plugins: `rmagine_embree_spherical`
+    - Sensor-Plugins: `rmagine_embree_spherical`, `rmagine_embree_o1dn`
 2. OptiX
     - World-Plugins: `rmagine_optix_map_gzplugin`
     - Sensor-Plugins: `rmagine_optix_spherical`
@@ -95,7 +95,7 @@ Depending on which backends were installed during Rmagine installation the follo
 
 ### 2. Sensor Registration
 
-The rmagine sensors are implemented as new gazebo sensors. They need to be registered first. To do that, you need to add `librmagine_embree_sensors_gzregister.so` or `librmagine_optix_sensors_gzregister.so` to the arguments of the gazebo execution call.
+The rmagine sensors are implemented as new gazebo sensors. They need to be registered first. To do that, you need to add `librmagine_embree_spherical_gzregister.so`, `librmagine_embree_o1dn_gzregister.so`, or `librmagine_optix_sensors_gzregister.so` to the arguments of the gazebo execution call.
 
 
 
@@ -104,10 +104,10 @@ The rmagine sensors are implemented as new gazebo sensors. They need to be regis
 1. Command line Arguments:
 
 ```bash
-user@pc:~$ gazebo -s librmagine_embree_sensors_gzregister.so
+user@pc:~$ gazebo -s librmagine_embree_spherical_gzregister.so
 ```
 
-2. ROS launch file
+2. ROS2 launch file
 
 ```xml
 <include file="$(find-pkg-share gazebo_ros)/launch/gazebo.launch.py">
@@ -118,7 +118,7 @@ user@pc:~$ gazebo -s librmagine_embree_sensors_gzregister.so
     <arg name="debug"        value="$(var debug)"/>
     <arg name="verbose"      value="$(var verbose)"/>
     <arg name="extra_gazebo_args"
-        value="-s librmagine_optix_sensors_gzregister.so -s librmagine_embree_sensors_gzregister.so -- "/>
+        value="-s librmagine_optix_sensors_gzregister.so -s librmagine_embree_spherical_gzregister.so -s librmagine_embree_o1dn_gzregister.so -- "/>
 </include>
 ```
 
@@ -365,7 +365,7 @@ The following ROS-Adapter are available dependend on your sensor type:
 - sensor types: `rmagine_optix_spherical`
 
 `librmagine_embree_ros_gzplugin.so`
-- sensor types: `rmagine_embree_spherical`
+- sensor types: `rmagine_embree_spherical`, `rmagine_embree_o1dn`
 
 
 
@@ -566,3 +566,9 @@ On my system, Gazebo finds all rmagine libraries automatically. If that is not t
 ```console
 export GAZEBO_PLUGIN_PATH=~/your_ws/devel/lib:$GAZEBO_PLUGIN_PATH
 ```
+
+Depending on how your workspace is setup, you may need to manually source the embree headers to use embree sensors.
+E.g. `source ~/embree/embree-vars.sh`
+
+If you are having trouble using Optix/CUDA, you should verify that the CUDA_VISIBLE_DEVICES environment variable is unset.
+You can force this via `unset CUDA_VISIBLE_DEVICES`.
